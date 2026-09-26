@@ -1,12 +1,15 @@
 """仪器维修业务规则：状态流转、字段校验与筛选口径都收在这里。"""
 from __future__ import annotations
 
+from datetime import date
 from typing import Any
 
 from app.store import store
 
 MODULE = "equipment_repair"
 REQUIRED_FIELDS = ["维修编号", "仪器编号", "故障描述"]
+FILTER_FIELDS = ["维修编号", "仪器编号", "故障描述", "报修人"]
+SORTABLE_FIELDS = ["维修编号", "仪器编号", "故障描述", "报修人"]
 STATUS_ORDER = ["已报修", "维修中", "已修复", "无法修复"]
 ACTION_RULES = {"派工维修": "维修中", "确认修复": "已修复", "标记报废": "无法修复"}
 NEGATIVE_ACTIONS = []
@@ -17,18 +20,54 @@ class EquipmentRepairService:
         self,
         *,
         keyword: str | None = None,
+        filters: dict[str, str | None] | None = None,
         status: str | None = None,
+        sort: str | None = None,
+        order: str = "asc",
         page: int = 1,
         size: int = 20,
-    ) -> tuple[list[dict[str, Any]], int]:
+    ) -> tuple[list[dict[str, Any]], int, int]:
+        """筛选、排序、分页一次算完，返回（当前页数据, 总条数, 实际页码）。
+
+        页码超出范围时收拢到最后一页，调用方拿实际页码回写给前端，
+        避免筛选后旧页码对着空屏。
+        """
         rows = store.rows(MODULE)
         if keyword:
             rows = [row for row in rows if keyword in str(row.get("维修编号", ""))]
+        for field, value in (filters or {}).items():
+            if field in FILTER_FIELDS and value:
+                rows = [row for row in rows if value in str(row.get(field, ""))]
         if status:
             rows = [row for row in rows if row.get("status") == status]
+        if sort:
+            rows = sorted(
+                rows,
+                key=lambda row: (str(row.get(sort) or ""), int(row.get("id", 0))),
+                reverse=order == "desc",
+            )
         total = len(rows)
-        start = max(page - 1, 0) * size
-        return rows[start:start + size], total
+        max_page = max(1, -(-total // size))
+        page = min(max(page, 1), max_page)
+        start = (page - 1) * size
+        return rows[start:start + size], total, page
+
+    def stats(self) -> list[dict[str, Any]]:
+        """统计卡片与列表同一次响应给出，保证数量指标不和列表错位。"""
+        rows = store.rows(MODULE)
+        month = date.today().strftime("%Y-%m")
+        return [
+            {"label": "待维修仪器", "value": sum(1 for row in rows if row.get("status") == "已报修")},
+            {"label": "维修中仪器", "value": sum(1 for row in rows if row.get("status") == "维修中")},
+            {
+                "label": "本月修复",
+                "value": sum(
+                    1
+                    for row in rows
+                    if row.get("status") == "已修复" and str(row.get("修复日期", "")).startswith(month)
+                ),
+            },
+        ]
 
     def get_entry(self, entry_id: int) -> dict[str, Any] | None:
         return store.find(MODULE, entry_id)

@@ -33,3 +33,13 @@ body { margin: 0; background: #f6f8fb; color: #1f2937; }
 .link { border: none; background: none; color: var(--brand); cursor: pointer; padding: 0; }
 .page-foot { display: flex; justify-content: space-between; margin-top: 8px; font-size: 12px; color: var(--muted); }
 .error-text { color: #b42318; }
+.notice-text { color: #b45309; }
+.data-table th.sortable { cursor: pointer; user-select: none; }
+.data-table th.sortable:hover { color: var(--brand); }
+.data-table th.sorted { color: var(--brand); }
+.sort-indicator { margin-left: 4px; font-size: 11px; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.pager { display: flex; align-items: center; gap: 10px; margin-top: 8px; font-size: 13px; }
+.pager-info { color: var(--muted); }
+.pager-hint { color: var(--muted); font-size: 12px; }
+.pager-size { color: var(--muted); font-size: 12px; display: flex; align-items: center; gap: 4px; }
